@@ -1,63 +1,39 @@
 # Exponent transaction categorizer
 
-Dependency-free Java smoke test: validates the file header, CSV quoting, and rows,
-then prints the supplied CSV file unchanged to standard output.
-Requires JDK 16 or newer because `TransactionRow` uses a Java record.
-
-From the repository root, compile and run against `transactions.csv`:
+Requires JDK 16 or newer; no dependencies. From the repository root:
 
 ```sh
-javac Main.java TransactionRow.java && java Main transactions.csv
+javac Main.java && java Main transactions.csv
 ```
 
-`Main.java` accepts exactly one file path. `CsvFileValidator.java` checks the exact
-header shown in `transactions.csv` and CSV quoting before anything is printed.
-`CsvTransactionParser.java` decodes CSV fields and calls `TransactionRowValidator`
-for every data row. Any invalid row is fatal: the CLI exits nonzero with an error
-and prints no file contents. Row numbers count CSV records, including the header;
-newlines inside quoted fields do not increment them.
-Deduplication, type classification, category assignment, and review flags are
-implemented separately but not yet connected to the CLI. Ledger output is pending.
+This validates the CSV, keeps the highest sync batch per transaction ID, builds
+categorized ledger lines, and writes `ledger_lines.csv` in the current directory,
+replacing an existing output file. IDs retain their first-seen order. Amount signs
+and decimal precision are preserved. Splits and the review queue are not implemented.
 
-`TransactionRow.java` defines a record for a parsed transaction, with fields
-matching the CSV columns: `id`, `sync_batch` (represented as `syncBatch`), `date`,
-`account`, `merchant`, `memo`, and `amount`. It uses `LocalDate` for dates and
-`BigDecimal` for amounts. `TransactionRowValidator.java` converts seven decoded
-fields into this record, constructing amounts directly from text. Invalid fields
-throw an error with the row number, field, and reason; no invalid row is returned.
-Blank merchant and memo values are allowed because the prompt does not require
-them. Batch numbers must fit a Java integer; no minimum is specified in the prompt.
-Zero and negative amounts are valid.
-
-Run the file-level CLI tests (no test dependencies):
+Run all tests from the repository root (including the supplied CSV fixtures):
 
 ```sh
-javac Main.java CsvFileTest.java && java CsvFileTest
+javac *.java && (for test in *Test.java; do java "${test%.java}" || exit 1; done)
 ```
 
-These tests require invalid files to produce a nonzero exit status and an error
-on standard error. A valid header with no transactions is accepted. They cover
-file access, missing/incorrect headers, quoting, and row-validation integration.
+Invalid input is fatal, with a row/field error where applicable. Validation and
+ledger building finish before the output is opened, so invalid input leaves any
+existing ledger untouched. Identical duplicate rows are allowed; conflicting rows
+with the same ID and batch are rejected. CSV row numbers include the header and
+count multiline quoted fields as one record. Blank merchants/memos, zero amounts,
+and any batch fitting a Java integer are allowed; the prompt gives no tighter rules.
 
-Run the small, direct row-validator tests:
+Transfer assumptions: case-insensitive memo matching, ignoring outer whitespace,
+recognizes bank `ONLINE PAYMENT TO CARD`, `ONLINE TRANSFER TO SAVINGS`, and
+`ONLINE TRANSFER FROM SAVINGS`, optionally followed by a numeric account suffix.
+On the card it recognizes `ONLINE PAYMENT - THANK YOU`. No extra text is accepted.
+`ACH PAYMENT MAINLINE PROPERTIES` remains a rent purchase. Before merging, ask
+which provider fields or guaranteed memo patterns establish account ownership;
+unrecognized descriptions can misclassify transfers. Extend `TransferRules` with
+positive and negative tests. Also confirm the duplicate-tie and blank-field policies.
 
-```sh
-javac TransactionRowValidatorTest.java && java TransactionRowValidatorTest
-```
-
-Transfer detection assumes these memo descriptions identify the operator's own
-accounts (case-insensitive, ignoring outer whitespace): bank `ONLINE PAYMENT TO
-CARD`, bank `ONLINE TRANSFER TO SAVINGS` / `ONLINE TRANSFER FROM SAVINGS` (each
-optionally followed by a numeric account suffix), and card `ONLINE PAYMENT - THANK
-YOU`. No additional text is accepted. Ordinary `PAYMENT` or `TRANSFER` keywords
-are insufficient: `ACH PAYMENT MAINLINE PROPERTIES` is a rent purchase.
-Before merging, ask which provider fields or guaranteed memo patterns establish
-account ownership. Unrecognized descriptions fall through to the account/sign
-rules and may misclassify transfers. Add supported patterns in `TransferRules`
-with positive and negative tests; the classifier need not change.
-
-Run the transfer and type tests:
-
-```sh
-javac TransferRulesTest.java TransactionTypeClassifierTest.java && java TransferRulesTest && java TransactionTypeClassifierTest
-```
+AI usage: ChatGPT helped with the initial entities; Codex helped implement and test
+parsing, validation, deduplication, classification, and output. Human direction
+required fatal input validation, small separately tested components, explicit Java
+types, and explicit conditional logic rather than a combined review expression.

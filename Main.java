@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 public class Main {
     public static void main(String[] args) throws Exception {
@@ -12,10 +13,12 @@ public class Main {
         try {
             Path path = Paths.get(args[0]);
             String contents = Files.readString(path);
-            CsvTransactionParser.parse(contents);
-            System.out.print(contents);
+            List<TransactionRow> transactions = CsvTransactionParser.parse(contents);
+            List<TransactionRow> deduplicated = TransactionDeduplicator.deduplicate(transactions);
+            List<LedgerLine> lines = LedgerBuilder.build(deduplicated);
+            LedgerCsvWriter.write(Paths.get("ledger_lines.csv"), lines);
         } catch (IOException | IllegalArgumentException e) {
-            System.err.println("Cannot read CSV: " + e.getMessage());
+            System.err.println("Cannot generate ledger: " + e.getMessage());
             System.exit(1);
         }
     }

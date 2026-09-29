@@ -1,8 +1,11 @@
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.File;
+import java.util.List;
 
 public class CsvFileTest {
     private static final String HEADER = "id,sync_batch,date,account,merchant,memo,amount\n";
+    private static final String LEDGER_HEADER = "transaction_id,date,type,category,amount,needs_review\n";
     private static int failures;
     private static Path directory;
 
@@ -20,6 +23,9 @@ public class CsvFileTest {
         acceptsQuotedFields();
         rejectsMissingAmount();
         rejectsEmptyQuotedRecord();
+        deduplicatesBeforeBuilding();
+        rejectsConflictingDuplicates();
+        matchesExpectedFeedOutput();
 
         if (failures > 0) {
             throw new AssertionError(failures + " file-level test(s) failed");
@@ -48,7 +54,8 @@ public class CsvFileTest {
 
     private static void acceptsHeaderOnly() throws Exception {
         Result result = run(csv(HEADER));
-        check("header-only file", result.exitCode() == 0 && result.error().isBlank());
+        check("header-only file", result.exitCode() == 0 && result.error().isBlank()
+                && result.output().equals(LEDGER_HEADER));
     }
 
     private static void rejectsEmptyQuotedRecord() throws Exception {
@@ -70,7 +77,8 @@ public class CsvFileTest {
                 + "txn_1,1,2026-08-03,card,\"Shop, Inc\",\"a \"\"quote\"\"\nand newline\",12.30";
         Result result = run(csv(contents));
         check("quoted fields and no final newline", result.exitCode() == 0
-                && result.error().isBlank() && result.output().equals(contents));
+                && result.error().isBlank() && result.output().equals(LEDGER_HEADER
+                + "txn_1,2026-08-03,purchase,Uncategorized,12.30,true\n"));
     }
 
     private static void rejectsMissingAmount() throws Exception {
@@ -80,6 +88,32 @@ public class CsvFileTest {
     }
 
     // Shared helpers: create input, run the CLI, and report results.
+    private static void deduplicatesBeforeBuilding() throws Exception {
+        Result result = run(csv(HEADER
+                + "txn_1,1,2026-08-03,card,Unknown,pending,1.00\n"
+                + "txn_1,2,2026-08-03,card,SYSCO,posted,-12.30\n"));
+        check("highest batch determines complete ledger line", result.exitCode() == 0
+                && result.output().equals(LEDGER_HEADER
+                + "txn_1,2026-08-03,refund,Food & beverage,-12.30,false\n"));
+    }
+
+    private static void rejectsConflictingDuplicates() throws Exception {
+        Result result = run(csv(HEADER
+                + "txn_1,1,2026-08-03,card,SYSCO,memo,1.00\n"
+                + "txn_1,1,2026-08-03,card,SYSCO,memo,2.00\n"));
+        check("conflicting duplicates are fatal", result.exitCode() != 0
+                && result.error().contains("Conflicting rows") && result.output().isEmpty());
+    }
+
+    private static void matchesExpectedFeedOutput() throws Exception {
+        Result result = run(Path.of("transactions.csv").toAbsolutePath());
+        List<String> actual = result.output().lines().toList();
+        List<String> expected = Files.readAllLines(Path.of("expected_first_15.csv"));
+        check("feed produces 56 lines and matches expected first 15", result.exitCode() == 0
+                && result.error().isBlank() && actual.size() == 57
+                && actual.subList(0, expected.size()).equals(expected));
+    }
+
     private static Path csv(String content) throws Exception {
         Path file = Files.createTempFile(directory, "input-", ".csv");
         file.toFile().deleteOnExit();
@@ -88,20 +122,27 @@ public class CsvFileTest {
 
     private static void expectRejected(String name, Path input) throws Exception {
         Result result = run(input);
-        check(name, result.exitCode() != 0 && !result.error().isBlank());
+        check(name, result.exitCode() != 0 && !result.error().isBlank() && result.output().isEmpty());
     }
 
     private static Result run(Path input) throws Exception {
-        Path output = Files.createTempFile(directory, "output-", ".txt");
+        Path workingDirectory = Files.createTempDirectory(directory, "run-");
+        workingDirectory.toFile().deleteOnExit();
+        Path output = workingDirectory.resolve("ledger_lines.csv");
         output.toFile().deleteOnExit();
+        String[] classpath = System.getProperty("java.class.path").split(File.pathSeparator);
+        for (int i = 0; i < classpath.length; i++) {
+            classpath[i] = Path.of(classpath[i]).toAbsolutePath().toString();
+        }
         Process process = new ProcessBuilder(
                 Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                "-cp", System.getProperty("java.class.path"), "Main", input.toString())
-                .redirectOutput(output.toFile())
+                "-cp", String.join(File.pathSeparator, classpath), "Main", input.toAbsolutePath().toString())
+                .directory(workingDirectory.toFile())
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .start();
         String error = new String(process.getErrorStream().readAllBytes());
         int exitCode = process.waitFor();
-        return new Result(exitCode, error, Files.readString(output));
+        return new Result(exitCode, error, Files.exists(output) ? Files.readString(output) : "");
     }
 
     private record Result(int exitCode, String error, String output) {}
