@@ -1,5 +1,6 @@
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class Main {
@@ -9,7 +10,7 @@ public class Main {
             System.exit(1);
         }
         try {
-            var path = Paths.get(args[0]);
+            Path path = Paths.get(args[0]);
             String contents = Files.readString(path);
             CsvTransactionParser.parse(contents);
             System.out.print(contents);

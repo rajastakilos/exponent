@@ -25,20 +25,20 @@ public class TransactionRowValidatorTest {
     }
 
     private static void acceptsValidRow() {
-        var actual = TransactionRowValidator.validate(validFields(), 2);
-        var expected = new TransactionRow("txn_1", 2, LocalDate.of(2026, 8, 3),
+        TransactionRow actual = TransactionRowValidator.validate(validFields(), 2);
+        TransactionRow expected = new TransactionRow("txn_1", 2, LocalDate.of(2026, 8, 3),
                 AccountType.CARD, "SYSCO", "memo", new BigDecimal("12.30"));
         check(actual.equals(expected), "typed transaction with exact decimal amount");
     }
 
     private static void rejectsMissingField() {
-        var fields = validFields();
+        List<String> fields = validFields();
         fields.remove(6);
         rejects(fields, "columns");
     }
 
     private static void rejectsExtraField() {
-        var fields = validFields();
+        List<String> fields = validFields();
         fields.add("extra");
         rejects(fields, "columns");
     }
@@ -84,19 +84,19 @@ public class TransactionRowValidatorTest {
     }
 
     private static void acceptsNegativeAmount() {
-        var row = TransactionRowValidator.validate(withField(6, "-12.30"), 2);
+        TransactionRow row = TransactionRowValidator.validate(withField(6, "-12.30"), 2);
         check(row.amount().equals(new BigDecimal("-12.30")), "negative amount");
     }
 
     private static void acceptsZeroAmount() {
-        var row = TransactionRowValidator.validate(withField(6, "0"), 2);
+        TransactionRow row = TransactionRowValidator.validate(withField(6, "0"), 2);
         check(row.amount().equals(BigDecimal.ZERO), "zero amount");
     }
 
     private static void acceptsBlankMerchantAndMemo() {
-        var fields = withField(4, "");
+        List<String> fields = withField(4, "");
         fields.set(5, "");
-        var row = TransactionRowValidator.validate(fields, 2);
+        TransactionRow row = TransactionRowValidator.validate(fields, 2);
         check(row.merchant().isEmpty() && row.memo().isEmpty(), "optional text fields");
     }
 
@@ -105,7 +105,7 @@ public class TransactionRowValidatorTest {
     }
 
     private static List<String> withField(int index, String value) {
-        var fields = validFields();
+        List<String> fields = validFields();
         fields.set(index, value);
         return fields;
     }

@@ -4,9 +4,9 @@ import java.util.List;
 public class CsvTransactionParser {
     public static List<TransactionRow> parse(String contents) {
         CsvFileValidator.validate(contents);
-        var transactions = new ArrayList<TransactionRow>();
-        var fields = new ArrayList<String>();
-        var field = new StringBuilder();
+        List<TransactionRow> transactions = new ArrayList<TransactionRow>();
+        List<String> fields = new ArrayList<String>();
+        StringBuilder field = new StringBuilder();
         boolean inQuotes = false;
         int rowNumber = 1;
         int recordStart = 0;
