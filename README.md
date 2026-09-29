@@ -1,6 +1,7 @@
 # Exponent transaction categorizer
 
-Requires JDK 16 or newer; no dependencies. From the repository root:
+Requires JDK 16 or newer (`java` and `javac` on your PATH) and a POSIX shell;
+no dependencies. From the repository root, compile and run:
 
 ```sh
 ./run.sh transactions.csv
@@ -11,6 +12,10 @@ Optionally supply an output path as the second argument:
 ```sh
 ./run.sh transactions.csv my-ledger.csv
 ```
+
+`run.sh` compiles `src/*.java` into `build/classes/` before running `Main`.
+Input and output paths are relative to your current directory; quote paths that
+contain spaces. You do not need to compile individual Java files manually.
 
 This validates the CSV, keeps the highest sync batch per transaction ID, builds
 categorized ledger lines, and writes to the supplied output path (default:
@@ -23,6 +28,12 @@ Run all tests from the repository root (including the supplied CSV fixtures):
 ```sh
 ./test.sh
 ```
+
+`test.sh` compiles `src/*.java` and `tests/*.java` into `build/test-classes/`,
+then runs every `tests/*Test.java` class. `tests/MainTest.java` runs the CLI in
+temporary directories and compares the supplied feed's output against
+`tests/fixtures/expected_first_15.csv`. Keep `transactions.csv` at the repository
+root so that this test can find it.
 
 Repository layout:
 
@@ -42,7 +53,7 @@ Start with `src/Main.java` to follow the processing flow:
 The builder combines `TransactionTypeClassifier`, `MerchantRule`,
 `CategoryAssigner`, and `ReviewFlag`; `TransferRules` holds editable transfer
 patterns. Records and enums describe the input and output data. Each component's
-tests live in the matching `*Test.java` file. No build tool or Java packages are
+tests live in the matching `tests/*Test.java` file. No build tool or Java packages are
 needed for this small project.
 
 Invalid input is fatal, with a row/field error where applicable. Validation and

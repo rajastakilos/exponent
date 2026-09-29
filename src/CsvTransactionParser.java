@@ -4,45 +4,87 @@ import java.util.List;
 public class CsvTransactionParser {
     public static List<TransactionRow> parse(String contents) {
         CsvFileValidator.validate(contents);
-        List<TransactionRow> transactions = new ArrayList<TransactionRow>();
-        List<String> fields = new ArrayList<String>();
-        StringBuilder field = new StringBuilder();
-        boolean inQuotes = false;
-        int rowNumber = 1;
-        int recordStart = 0;
+        return new RecordReader(contents).readTransactions();
+    }
 
-        for (int i = 0; i < contents.length(); i++) {
-            char c = contents.charAt(i);
-            if (c == '"') {
-                if (inQuotes && i + 1 < contents.length() && contents.charAt(i + 1) == '"') {
-                    field.append('"');
-                    i++;
-                } else {
-                    inQuotes = !inQuotes;
-                }
-            } else if (!inQuotes && c == ',') {
-                fields.add(field.toString());
-                field.setLength(0);
-            } else if (!inQuotes && (c == '\n' || c == '\r')) {
-                fields.add(field.toString());
-                if (rowNumber > 1) {
-                    transactions.add(TransactionRowValidator.validate(fields, rowNumber));
-                }
-                fields.clear();
-                field.setLength(0);
-                rowNumber++;
-                if (c == '\r' && i + 1 < contents.length() && contents.charAt(i + 1) == '\n') i++;
-                recordStart = i + 1;
+    // The file validator has already checked quoting; this reader decodes fields.
+    private static class RecordReader {
+        private final String contents;
+        private final List<TransactionRow> transactions = new ArrayList<>();
+        private final List<String> fields = new ArrayList<>();
+        private final StringBuilder field = new StringBuilder();
+        private int position;
+        private int rowNumber = 1;
+        private int recordStart;
+        private boolean inQuotes;
+
+        private RecordReader(String contents) {
+            this.contents = contents;
+        }
+
+        private List<TransactionRow> readTransactions() {
+            while (position < contents.length()) {
+                readCharacter(contents.charAt(position));
+                position++;
+            }
+            finishLastRecord();
+            return transactions;
+        }
+
+        private void readCharacter(char character) {
+            if (character == '"') {
+                readQuote();
+            } else if (inQuotes) {
+                field.append(character);
+            } else if (character == ',') {
+                finishField();
+            } else if (character == '\n' || character == '\r') {
+                readRecordEnding(character);
             } else {
-                field.append(c);
+                field.append(character);
             }
         }
 
-        // A final record need not end with a newline; preserve trailing empty fields.
-        if (rowNumber > 1 && recordStart < contents.length()) {
-            fields.add(field.toString());
-            transactions.add(TransactionRowValidator.validate(fields, rowNumber));
+        private void readQuote() {
+            if (inQuotes && nextCharacterIs('"')) {
+                field.append('"');
+                position++;
+                return;
+            }
+            inQuotes = !inQuotes;
         }
-        return transactions;
+
+        private boolean nextCharacterIs(char character) {
+            return position + 1 < contents.length() && contents.charAt(position + 1) == character;
+        }
+
+        private void finishField() {
+            fields.add(field.toString());
+            field.setLength(0);
+        }
+
+        private void finishRecord() {
+            finishField();
+            if (rowNumber > 1) {
+                transactions.add(TransactionRowValidator.validate(fields, rowNumber));
+            }
+            fields.clear();
+            rowNumber++;
+        }
+
+        private void readRecordEnding(char character) {
+            finishRecord();
+            if (character == '\r' && nextCharacterIs('\n')) {
+                position++; // Treat CRLF as a single record ending.
+            }
+            recordStart = position + 1;
+        }
+
+        private void finishLastRecord() {
+            // No final newline is required, and a trailing empty field still counts.
+            if (rowNumber > 1 && recordStart < contents.length()) {
+                finishRecord();
+            }
+        }
     }
 }
