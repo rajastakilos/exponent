@@ -6,9 +6,16 @@ Requires JDK 16 or newer; no dependencies. From the repository root:
 javac Main.java && java Main transactions.csv
 ```
 
+Optionally supply an output path as the second argument:
+
+```sh
+javac Main.java && java Main transactions.csv my-ledger.csv
+```
+
 This validates the CSV, keeps the highest sync batch per transaction ID, builds
-categorized ledger lines, and writes `ledger_lines.csv` in the current directory,
-replacing an existing output file. IDs retain their first-seen order. Amount signs
+categorized ledger lines, and writes to the supplied output path (default:
+`ledger_lines.csv` in the current directory), replacing an existing output file.
+The output directory must already exist. IDs retain their first-seen order. Amount signs
 and decimal precision are preserved. Splits and the review queue are not implemented.
 
 Run all tests from the repository root (including the supplied CSV fixtures):
