@@ -16,7 +16,8 @@ header shown in `transactions.csv` and CSV quoting before anything is printed.
 for every data row. Any invalid row is fatal: the CLI exits nonzero with an error
 and prints no file contents. Row numbers count CSV records, including the header;
 newlines inside quoted fields do not increment them.
-No deduplication, categorization, or ledger output is implemented.
+Deduplication, type classification, category assignment, and review flags are
+implemented separately but not yet connected to the CLI. Ledger output is pending.
 
 `TransactionRow.java` defines a record for a parsed transaction, with fields
 matching the CSV columns: `id`, `sync_batch` (represented as `syncBatch`), `date`,
@@ -42,4 +43,21 @@ Run the small, direct row-validator tests:
 
 ```sh
 javac TransactionRowValidatorTest.java && java TransactionRowValidatorTest
+```
+
+Transfer detection assumes these memo descriptions identify the operator's own
+accounts (case-insensitive, ignoring outer whitespace): bank `ONLINE PAYMENT TO
+CARD`, bank `ONLINE TRANSFER TO SAVINGS` / `ONLINE TRANSFER FROM SAVINGS` (each
+optionally followed by a numeric account suffix), and card `ONLINE PAYMENT - THANK
+YOU`. No additional text is accepted. Ordinary `PAYMENT` or `TRANSFER` keywords
+are insufficient: `ACH PAYMENT MAINLINE PROPERTIES` is a rent purchase.
+Before merging, ask which provider fields or guaranteed memo patterns establish
+account ownership. Unrecognized descriptions fall through to the account/sign
+rules and may misclassify transfers. Add supported patterns in `TransferRules`
+with positive and negative tests; the classifier need not change.
+
+Run the transfer and type tests:
+
+```sh
+javac TransferRulesTest.java TransactionTypeClassifierTest.java && java TransferRulesTest && java TransactionTypeClassifierTest
 ```
