@@ -1,2 +1,1 @@
-# exponent
-For the exponent take home
+# Exponent transaction categorizer
