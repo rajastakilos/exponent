@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.List;
 import java.util.ArrayList;
 
-public class CsvFileTest {
+public class MainTest {
     private static final String HEADER = "id,sync_batch,date,account,merchant,memo,amount\n";
     private static final String LEDGER_HEADER = "transaction_id,date,type,category,amount,needs_review\n";
     private static int failures;
@@ -32,7 +32,7 @@ public class CsvFileTest {
         rejectsInvalidInputWithNamedOutput();
 
         if (failures > 0) {
-            throw new AssertionError(failures + " file-level test(s) failed");
+            throw new AssertionError(failures + " CLI test(s) failed");
         }
     }
 
@@ -91,7 +91,6 @@ public class CsvFileTest {
                 && result.error().contains("Row 2: amount") && result.output().isEmpty());
     }
 
-    // Shared helpers: create input, run the CLI, and report results.
     private static void deduplicatesBeforeBuilding() throws Exception {
         Result result = run(csv(HEADER
                 + "txn_1,1,2026-08-03,card,Unknown,pending,1.00\n"
@@ -112,12 +111,13 @@ public class CsvFileTest {
     private static void matchesExpectedFeedOutput() throws Exception {
         Result result = run(Path.of("transactions.csv").toAbsolutePath());
         List<String> actual = result.output().lines().toList();
-        List<String> expected = Files.readAllLines(Path.of("expected_first_15.csv"));
+        List<String> expected = Files.readAllLines(Path.of("tests/fixtures/expected_first_15.csv"));
         check("feed produces 56 lines and matches expected first 15", result.exitCode() == 0
                 && result.error().isBlank() && actual.size() == 57
                 && actual.subList(0, expected.size()).equals(expected));
     }
 
+    // Shared helpers: create input, run the CLI, and report results.
     private static Path csv(String content) throws Exception {
         Path file = Files.createTempFile(directory, "input-", ".csv");
         file.toFile().deleteOnExit();

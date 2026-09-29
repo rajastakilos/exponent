@@ -1,3 +1,4 @@
 *.class
+/build/
 input.txt
 ledger_lines.csv

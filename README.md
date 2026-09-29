@@ -3,13 +3,13 @@
 Requires JDK 16 or newer; no dependencies. From the repository root:
 
 ```sh
-javac Main.java && java Main transactions.csv
+./run.sh transactions.csv
 ```
 
 Optionally supply an output path as the second argument:
 
 ```sh
-javac Main.java && java Main transactions.csv my-ledger.csv
+./run.sh transactions.csv my-ledger.csv
 ```
 
 This validates the CSV, keeps the highest sync batch per transaction ID, builds
@@ -21,8 +21,29 @@ and decimal precision are preserved. Splits and the review queue are not impleme
 Run all tests from the repository root (including the supplied CSV fixtures):
 
 ```sh
-javac *.java && (for test in *Test.java; do java "${test%.java}" || exit 1; done)
+./test.sh
 ```
+
+Repository layout:
+
+```text
+src/             Java application code
+tests/           Small tests for each component; MainTest exercises the CLI
+tests/fixtures/  Expected output for the first 15 transactions
+build/           Generated classes (ignored by Git)
+transactions.csv Sample input
+run.sh           Compile and run the application
+test.sh          Compile and run every test; stop on failure
+```
+
+Start with `src/Main.java` to follow the processing flow:
+`CsvTransactionParser` (using the file and row validators) →
+`TransactionDeduplicator` → `LedgerBuilder` → `LedgerCsvWriter`.
+The builder combines `TransactionTypeClassifier`, `MerchantRule`,
+`CategoryAssigner`, and `ReviewFlag`; `TransferRules` holds editable transfer
+patterns. Records and enums describe the input and output data. Each component's
+tests live in the matching `*Test.java` file. No build tool or Java packages are
+needed for this small project.
 
 Invalid input is fatal, with a row/field error where applicable. Validation and
 ledger building finish before the output is opened, so invalid input leaves any
