@@ -11,7 +11,7 @@ public class Main {
         try {
             var path = Paths.get(args[0]);
             String contents = Files.readString(path);
-            CsvFileValidator.validate(contents);
+            CsvTransactionParser.parse(contents);
             System.out.print(contents);
         } catch (IOException | IllegalArgumentException e) {
             System.err.println("Cannot read CSV: " + e.getMessage());

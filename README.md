@@ -1,6 +1,6 @@
 # Exponent transaction categorizer
 
-Dependency-free Java smoke test: validates the file header and CSV quoting,
+Dependency-free Java smoke test: validates the file header, CSV quoting, and rows,
 then prints the supplied CSV file unchanged to standard output.
 Requires JDK 16 or newer because `TransactionRow` uses a Java record.
 
@@ -12,14 +12,21 @@ javac Main.java TransactionRow.java && java Main transactions.csv
 
 `Main.java` accepts exactly one file path. `CsvFileValidator.java` checks the exact
 header shown in `transactions.csv` and CSV quoting before anything is printed.
-No row-level validation, transaction parsing, deduplication, categorization, or
-ledger output is implemented.
+`CsvTransactionParser.java` decodes CSV fields and calls `TransactionRowValidator`
+for every data row. Any invalid row is fatal: the CLI exits nonzero with an error
+and prints no file contents. Row numbers count CSV records, including the header;
+newlines inside quoted fields do not increment them.
+No deduplication, categorization, or ledger output is implemented.
 
 `TransactionRow.java` defines a record for a parsed transaction, with fields
 matching the CSV columns: `id`, `sync_batch` (represented as `syncBatch`), `date`,
 `account`, `merchant`, `memo`, and `amount`. It uses `LocalDate` for dates and
-`BigDecimal` for amounts. When CSV parsing is added, amounts should be constructed
-directly from their text values to preserve decimal precision.
+`BigDecimal` for amounts. `TransactionRowValidator.java` converts seven decoded
+fields into this record, constructing amounts directly from text. Invalid fields
+throw an error with the row number, field, and reason; no invalid row is returned.
+Blank merchant and memo values are allowed because the prompt does not require
+them. Batch numbers must fit a Java integer; no minimum is specified in the prompt.
+Zero and negative amounts are valid.
 
 Run the file-level CLI tests (no test dependencies):
 
@@ -29,5 +36,10 @@ javac Main.java CsvFileTest.java && java CsvFileTest
 
 These tests require invalid files to produce a nonzero exit status and an error
 on standard error. A valid header with no transactions is accepted. They cover
-file access, missing/incorrect headers, and unterminated quoting, not row-level
-validation.
+file access, missing/incorrect headers, quoting, and row-validation integration.
+
+Run the small, direct row-validator tests:
+
+```sh
+javac TransactionRowValidatorTest.java && java TransactionRowValidatorTest
+```
