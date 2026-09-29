@@ -76,3 +76,29 @@ AI usage: ChatGPT helped with the initial entities; Codex helped implement and t
 parsing, validation, deduplication, classification, and output. Human direction
 required fatal input validation, small separately tested components, explicit Java
 types, and explicit conditional logic rather than a combined review expression.
+
+
+Developer's Note:
+1. How to run it: 
+Simply run the following command and specify input and output. 
+`./run.sh transactions.csv your-output.csv`
+
+2. Anything in the story you found unclear or wrong, and what you'd ask before merging
+I thought most of the story was clear. The key thing I looked out for was business logic that was a bit fuzzy.
+
+a. The big thing here (mentioned above) is matching transfer types. I created a set of business rules for now,
+but it's clear to me that we'd need something way more robust. Before we'd merged I'd want this piece to be 
+clarified with product so that we aren't making major errors.
+b. I made this assuming a single input, but we'd need to think through taking in multiple files, files that overlap
+with transactions. There is no state, so everything that is processed has no way of knowing what came before it. 
+c. We don't handle currency or money here. I'd need to handle that.
+
+3. where you used AI and where you overrode it
+a. My strategy was to spend about 30 minutes just reading this to internalize the business rules. I worked with
+ChatGpt to discuss and understand. I basically handcoded the entities with ChatGPT. Once I had that in place, 
+I moved to Codex. I didn't want to simply feed it a prompt. I did show it the input you sent me so that it was working 
+from a shared understanding. From there I wanted to handle (1) Csv validation, (2) row validation, (3) Ledger writing
+I broke ledger writing down into review flagging, categories, and transfers. I then wired it all together, refactored,
+and updated the README.md. I always worked with tests. TDD is important with AI.
+b. I mostly overrode AI on scope of approach. I wanted to take this in bite-sized pieces. Human context is essential
+for workign with AI. I don't believe in vibe-coding. In the event there is an issue, we can always go back to a bite-sized commit and change things. 
